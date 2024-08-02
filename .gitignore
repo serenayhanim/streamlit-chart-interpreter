@@ -1,3 +1,6 @@
+# Ignore Streamlit secrets directory
+.streamlit/
+
 # Ignore virtual environments
 venv/
 env/

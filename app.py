@@ -6,13 +6,14 @@ import requests
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env file
-load_dotenv()
+# # Load environment variables from .env file
+# load_dotenv()
 
-# Get your OpenAI API key from environment variables
-api_key = os.getenv('OPENAI_API_KEY')
+# # Get your OpenAI API key from environment variables
+# api_key = os.getenv('OPENAI_API_KEY')
 
-# Set your OpenAI API key
+# Load API key from Streamlit secrets
+api_key = st.secrets["openai"]["api_key"]
 
 
 def encode_image(image_bytes):
