@@ -1,20 +1,13 @@
 import streamlit as st
-from PIL import Image
+import plotly.graph_objects as go
 import io
 import base64
 import requests
-from dotenv import load_dotenv
-import os
-
-# # Load environment variables from .env file
-# load_dotenv()
-
-# # Get your OpenAI API key from environment variables
-# api_key = os.getenv('OPENAI_API_KEY')
+import json
+from PIL import Image
 
 # Load API key from Streamlit secrets
 api_key = st.secrets["openai"]["api_key"]
-
 
 def encode_image(image_bytes):
     """
@@ -53,37 +46,69 @@ def interpret_chart(image_bytes):
         "max_tokens": 300
     }
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    
+    if response.status_code != 200:
+        raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
+    
     return response.json()
 
+def save_plotly_figure(fig):
+    """
+    Save Plotly figure to a byte buffer.
+    """
+    img_bytes = fig.to_image(format="png")
+    return img_bytes
+
+def create_chart_1():
+    fig = go.Figure(data=go.Bar(y=[2, 3, 1]))
+    return fig
+
+def create_chart_2():
+    fig = go.Figure(data=go.Scatter(y=[2, 1, 3]))
+    return fig
+
+def create_chart_3():
+    fig = go.Figure(data=go.Pie(labels=['A', 'B', 'C'], values=[10, 20, 30]))
+    return fig
+
+def display_interpretation_card(interpretation):
+    """
+    Display the interpretation in a card format.
+    """
+    interpretation_text = json.dumps(interpretation, indent=2)
+    message_content = interpretation['choices'][0]['message']['content']
+    st.markdown(f"""
+        <div style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin: 10px 0;">
+            <h4>Chart Interpretation</h4>
+            <pre>{message_content}</pre>
+        </div>
+    """, unsafe_allow_html=True)
+
 def main():
-    st.title("Chart Interpreter")
+    st.title("Chart Interpretation Dashboard")
 
-    uploaded_file = st.file_uploader("Upload a chart image", type=["png", "jpg", "jpeg"])
+    charts = {
+        "Chart 1": create_chart_1,
+        "Chart 2": create_chart_2,
+        "Chart 3": create_chart_3,
+    }
 
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption='Uploaded Chart.', use_column_width=True)
+    for chart_name, create_chart_func in charts.items():
+        st.header(chart_name)
 
-        # Convert the uploaded image to bytes
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format=image.format)
-        img_bytes = img_byte_arr.getvalue()
+        # Create and display the chart
+        fig = create_chart_func()
+        st.plotly_chart(fig)
 
-        if st.button("Interpret Chart"):
-            with st.spinner('Interpreting the chart...'):
+        # Convert the chart to bytes
+        img_bytes = save_plotly_figure(fig)
+
+        # Interpret chart button
+        if st.button(f"Interpret {chart_name}"):
+            with st.spinner(f'Interpreting {chart_name}...'):
                 try:
                     interpretation = interpret_chart(img_bytes)
-                    if 'choices' in interpretation:
-                        message_content = interpretation['choices'][0]['message']['content']
-                        st.markdown(
-                            f"""
-                            <div style="border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
-                                <h4>Chart Interpretation:</h4>
-                                <p>{message_content}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    else:
-                        st.error("Failed to get interpretation.")
+                    display_interpretation_card(interpretation)
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
 
